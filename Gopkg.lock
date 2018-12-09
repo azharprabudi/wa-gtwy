@@ -80,6 +80,14 @@
   version = "v0.0.4"
 
 [[projects]]
+  digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
+  name = "github.com/satori/go.uuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
+  version = "v1.2.0"
+
+[[projects]]
   branch = "master"
   digest = "1:bf1cb2d456a753d515d90e43c4b05afa4837e75d7808d1752607b91007ce25bb"
   name = "github.com/skip2/go-qrcode"
@@ -118,6 +126,7 @@
     "github.com/Rhymen/go-whatsapp",
     "github.com/jmoiron/sqlx",
     "github.com/lib/pq",
+    "github.com/satori/go.uuid",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
