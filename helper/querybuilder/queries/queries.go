@@ -125,3 +125,17 @@ func CreateQueriesWith(joins []*qbmodel.Join) string {
 	}
 	return with
 }
+
+// CreateQueriesOrder ...
+func CreateQueriesOrder(orders []*qbmodel.Order) string {
+	var ordrs string
+	for index, order := range orders {
+		var separatorComma = ","
+		if isLastIteration(index, len(orders)) {
+			separatorComma = ""
+		}
+
+		ordrs = fmt.Sprintf(" %s %s %s%s", ordrs, order.Key, order.Value, separatorComma)
+	}
+	return ordrs
+}

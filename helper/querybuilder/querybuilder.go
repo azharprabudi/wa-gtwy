@@ -27,29 +27,32 @@ func (qb *QueryBuilder) Query(tableName string, limit int, offset int) string {
 }
 
 // QueryWhere ...
-func (qb *QueryBuilder) QueryWhere(tableName string, conditions []*qbmodel.Condition) string {
+func (qb *QueryBuilder) QueryWhere(tableName string, conditions []*qbmodel.Condition, orders []*qbmodel.Order) string {
 	// build query
 	query := fmt.Sprintf("select * from \"%s\" where", tableName)
 	where := qbqueries.CreateQueriesWhere(conditions)
-	query = fmt.Sprintf("%s%s", query, where)
+	order := qbqueries.CreateQueriesOrder(orders)
+	query = fmt.Sprintf("%s%s %s", query, where, order)
 	return query
 }
 
 // QueryWith ...
-func (qb *QueryBuilder) QueryWith(tableName string, joins []*qbmodel.Join) string {
+func (qb *QueryBuilder) QueryWith(tableName string, joins []*qbmodel.Join, orders []*qbmodel.Order) string {
 	// build query
 	withs := qbqueries.CreateQueriesWith(joins)
-	query := fmt.Sprintf("select * from \"%s\" %s", tableName, withs)
+	order := qbqueries.CreateQueriesOrder(orders)
+	query := fmt.Sprintf("select * from \"%s\" %s %s", tableName, withs, order)
 	return query
 }
 
 // QueryWhereWith ...
-func (qb *QueryBuilder) QueryWhereWith(tableName string, joins []*qbmodel.Join, conditions []*qbmodel.Condition) string {
+func (qb *QueryBuilder) QueryWhereWith(tableName string, joins []*qbmodel.Join, conditions []*qbmodel.Condition, orders []*qbmodel.Order) string {
 
 	// build query
 	withs := qbqueries.CreateQueriesWith(joins)
 	where := qbqueries.CreateQueriesWhere(conditions)
-	query := fmt.Sprintf("select * from \"%s\" %s %s", tableName, withs, where)
+	order := qbqueries.CreateQueriesOrder(orders)
+	query := fmt.Sprintf("select * from \"%s\" %s %s %s", tableName, withs, where, order)
 	return query
 }
 
