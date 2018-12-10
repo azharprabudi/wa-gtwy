@@ -1,4 +1,4 @@
-package dbwhatsapp
+package wadb
 
 // WhatsappDB ...
 type WhatsappDB struct{}

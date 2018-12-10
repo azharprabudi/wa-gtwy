@@ -1,4 +1,4 @@
-package dbwhatsapp
+package wadb
 
 import (
 	"github.com/jmoiron/sqlx"

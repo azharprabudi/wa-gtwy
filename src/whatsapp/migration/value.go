@@ -1,7 +1,7 @@
 package wamigration
 
 import (
-	wasql "github.com/wa-gtwy/src/whatsapp/migrations/sql"
+	wasql "github.com/wa-gtwy/src/whatsapp/migration/sql"
 )
 
 var values = []string{wasql.V1}
