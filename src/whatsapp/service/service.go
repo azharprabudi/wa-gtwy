@@ -7,8 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/satori/go.uuid"
-
+	uuid "github.com/satori/go.uuid"
 	"github.com/wa-gtwy/helper/querybuilder/model"
 
 	"github.com/wa-gtwy/helper/querybuilder"
@@ -44,38 +43,23 @@ func (ws *WhatsappService) Login() (*whatsapp.Conn, error) {
 	* the previous session is already exists or not,
 	* at different function
 	 */
-	prevSess, err := ws.readSession()
-	if err != nil {
-		return nil, err
-	}
+	var session whatsapp.Session
+	prevSess := ws.readSession()
+	if prevSess != nil {
 
-	/**
-	* load previous session, and we should check if
-	* that still valid or not
-	* when we got the error, we already know if the
-	* session is invalid, so we direct user to login
-	* again
-	 */
-	session, err := wac.RestoreSession(*prevSess)
-	if err != nil {
-		// fmt.Fprintf(os.Stderr, "restoring failed: %v\n", err)
-		// return
-	} else {
 		/**
-		* create the barcode at the below, and do login
-		* at here
+		* load previous session, and we should check if
+		* that still valid or not
+		* when we got the error, we already know if the
+		* session is invalid, so we direct user to login
+		* again
 		 */
-		qr := make(chan string)
-
-		go func() {
-			terminal := qrcodeTerminal.New()
-			terminal.Get(<-qr).Print()
-		}()
-
-		session, err = wac.Login(qr)
+		session, err = wac.RestoreSession(*prevSess)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error during login: %v\n", err)
+			session = ws.doLogin(wac)
 		}
+	} else {
+		session = ws.doLogin(wac)
 	}
 
 	/**
@@ -87,13 +71,35 @@ func (ws *WhatsappService) Login() (*whatsapp.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return wac, nil
+}
+
+/**
+* do login
+ */
+func (ws *WhatsappService) doLogin(wac *whatsapp.Conn) whatsapp.Session {
+	/**
+	* create the barcode at the below, and do login
+	* at here
+	 */
+	qr := make(chan string)
+
+	go func() {
+		terminal := qrcodeTerminal.New()
+		terminal.Get(<-qr).Print()
+	}()
+
+	session, err := wac.Login(qr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during login: %v\n", err)
+	}
+	return session
 }
 
 /**
 * get previous session at db
  */
-func (ws *WhatsappService) readSession() (*whatsapp.Session, error) {
+func (ws *WhatsappService) readSession() *whatsapp.Session {
 	/**
 	* get last previous session at db, order it by create at desc
 	 */
@@ -119,7 +125,7 @@ func (ws *WhatsappService) readSession() (*whatsapp.Session, error) {
 	prevSession := new(wamodel.SessionGet)
 	err := ws.db.QueryRowx(query).StructScan(&prevSession)
 	if err != nil {
-		return nil, errors.New("There is no session exists")
+		return nil
 	}
 
 	/**
@@ -130,9 +136,9 @@ func (ws *WhatsappService) readSession() (*whatsapp.Session, error) {
 	result := new(whatsapp.Session)
 	err = json.Unmarshal([]byte(prevSession.SessionCreated.Value), result)
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	return result, nil
+	return result
 }
 
 /**
@@ -150,18 +156,31 @@ func (ws *WhatsappService) writeSession(session *whatsapp.Session) error {
 	/**
 	* save data to db
 	 */
-	qbuilder := qb.NewQueryBuilder()
-	queryCreate := qbuilder.Create("sessions", &wamodel.SessionCreated{
+	data := wamodel.SessionCreated{
 		ID:        uuid.NewV4(),
 		Value:     string(str),
 		CreatedAt: time.Now(),
-	})
-	_, err = ws.db.Exec(queryCreate)
+	}
+	qbuilder := qb.NewQueryBuilder()
+	queryCreate := qbuilder.Create("sessions", data)
+	_, err = ws.db.Exec(queryCreate, data.ID, data.Value, data.CreatedAt)
 	if err != nil {
 		return err
 	}
 	return nil
 
+}
+
+/**
+* the function at below, to set the connection whatsapp to our
+* service property
+ */
+
+// SetConnectionWhatsapp ...
+func (ws *WhatsappService) SetConnectionWhatsapp(waConn *whatsapp.Conn) {
+	if ws.waConn == nil {
+		ws.waConn = waConn
+	}
 }
 
 /**
@@ -171,19 +190,22 @@ func (ws *WhatsappService) writeSession(session *whatsapp.Session) error {
  */
 
 // SendTextMessagePersonal ...
-func (ws *WhatsappService) SendTextMessagePersonal(conn *whatsapp.Conn, destPhoneNumb string, text string) error {
-	message := whatsapp.TextMessage{
-		Info: whatsapp.MessageInfo{
-			FromMe:    true,
-			RemoteJid: fmt.Sprintf("%s@s.whatsapp.net", destPhoneNumb),
-		},
-		Text: text,
+func (ws *WhatsappService) SendTextMessagePersonal(destPhoneNumb string, text string) error {
+	if ws.waConn != nil && ws.waConn.Info.Connected {
+		message := whatsapp.TextMessage{
+			Info: whatsapp.MessageInfo{
+				FromMe:    true,
+				RemoteJid: fmt.Sprintf("%s@s.whatsapp.net", destPhoneNumb),
+			},
+			Text: text,
+		}
+		err := ws.waConn.Send(message)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
-	err := conn.Send(message)
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.New("Not connected with whatsapp")
 }
 
 /**
@@ -204,6 +226,7 @@ func (ws *WhatsappService) Logout(wa *whatsapp.Conn) error {
 func NewWhatsappService(db *sqlx.DB, maxTimeoutQR time.Duration) WhatsappServiceInterface {
 	return &WhatsappService{
 		db:           db,
+		waConn:       nil,
 		maxTimeoutQR: maxTimeoutQR,
 	}
 }
